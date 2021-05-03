@@ -220,7 +220,7 @@ class IsometricTensorNet(nx.DiGraph):
         def local_precond(e, p, g):
             rho = p.T @ e
             return g @ jnp.linalg.pinv(rho).T
-        return {name: local_precond(env[name], params[name], g) for name, g in gradient}
+        return {name: local_precond(env[name], params[name], g) for name, g in gradient.items()}
 
     def loss(self,
              params_bra,
