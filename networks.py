@@ -217,11 +217,10 @@ class IsometricTensorNet(nx.DiGraph):
             indices: list of indices where to apply a gate"""
 
         env = grad(lambda x: self.scalar_prod(params, x, indices), holomorphic=True)(params)
-        def local_precond(y):
-            e, p, g = y
+        def local_precond(e, p, g):
             rho = p.T @ e
             return g @ jnp.linalg.pinv(rho).T
-        return {name: local_precond((env[name], params[name], g)) for name, g in gradient}
+        return {name: local_precond(env[name], params[name], g) for name, g in gradient}
 
     def loss(self,
              params_bra,
