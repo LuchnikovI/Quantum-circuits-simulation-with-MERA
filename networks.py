@@ -1,6 +1,6 @@
 import networkx as nx
 from functools import reduce, partial
-from jax import random, jit, value_and_grad
+from jax import random, jit, value_and_grad, grad
 import jax.numpy as jnp
 import jax
 import tensornetwork as tn
@@ -181,7 +181,48 @@ class IsometricTensorNet(nx.DiGraph):
                     edge_bra^edge_ket
         total_tn = list(psi_bra.values()) + [gate_node] + list(psi_ket.values())
         return tn.contractors.auto(total_tn).tensor
-    
+
+    def scalar_prod(self,
+               params_bra,
+               params_ket,
+               indices):
+        """Calculates <psi1|psi2>.
+
+        Args:
+            params_bra: pytree of jnp.ndarrays
+            params_ket: pytree of jnp.ndarrays
+            indices: list with edges identifyers
+
+        Returns:
+            value of <psi1|psi2>."""
+
+        params_bra = {key: val.conj() for key, val in params_bra.items()}
+        psi_bra = self.get_tensor_network(params_bra)
+        psi_ket = self.get_tensor_network(params_ket)
+        for node_bra, node_ket in zip(psi_bra.values(), psi_ket.values()):
+            for edge_bra, edge_ket in zip(tn.get_all_dangling([node_bra]), tn.get_all_dangling([node_ket])):
+                    edge_bra^edge_ket
+        total_tn = list(psi_bra.values()) + list(psi_ket.values())
+        return tn.contractors.auto(total_tn).tensor
+
+    def precondition(self,
+                     params,
+                     gradient,
+                     indices):
+        """Apply preconditioner to gradients.
+
+        Args:
+            params: pytree of parameters
+            gradinet: pytree of gradients
+            indices: list of indices where to apply a gate"""
+
+        env = grad(lambda x: self.scalar_prod(params, x, indices), holomorphic=True)(params)
+        def local_precond(y):
+            e, p, g = y
+            rho = p.T @ e
+            return g @ jnp.linalg.pinv(rho).T
+        return {name: local_precond((env[name], params[name], g)) for name, g in gradient}
+
     def loss(self,
              params_bra,
              params_ket,
