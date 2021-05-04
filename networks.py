@@ -218,8 +218,7 @@ class IsometricTensorNet(nx.DiGraph):
 
         env = grad(lambda x: self.scalar_prod(params, x, indices), holomorphic=True)(params)
         def local_precond(e, p, g):
-            rho = p.T @ e
-            return g @ jnp.linalg.pinv(rho).T
+            return e.T @ p
         return {name: local_precond(env[name], params[name], g) for name, g in gradient.items()}
 
     def loss(self,
