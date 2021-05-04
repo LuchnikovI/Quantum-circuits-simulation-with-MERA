@@ -207,19 +207,17 @@ class IsometricTensorNet(nx.DiGraph):
 
     def precondition(self,
                      params,
-                     gradient,
                      indices):
         """Apply preconditioner to gradients.
 
         Args:
             params: pytree of parameters
-            gradinet: pytree of gradients
             indices: list of indices where to apply a gate"""
 
         env = grad(lambda x: self.scalar_prod(params, x, indices), holomorphic=True)(params)
-        def local_precond(e, p, g):
+        def local_precond(e, p):
             return e.T @ p
-        return {name: local_precond(env[name], params[name], g) for name, g in gradient.items()}
+        return {name: local_precond(env[name], params) for name, params in params.items()}
 
     def loss(self,
              params_bra,
