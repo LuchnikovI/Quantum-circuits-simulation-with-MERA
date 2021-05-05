@@ -286,7 +286,7 @@ class TernaryMERA(IsometricTensorNet):
               iters,
               layers,
               opt,
-              use_precond=True):
+              use_precond):
         """Apply gate to the MERA tensor network.
 
         Args:
