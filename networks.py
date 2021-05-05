@@ -347,7 +347,8 @@ class TernaryMERA(IsometricTensorNet):
                              list_of_states,
                              iters,
                              layers,
-                             opt):
+                             opt,
+                             use_precond=True):
         """Sets MERA tensor network into product state.
 
         Args:
@@ -358,6 +359,8 @@ class TernaryMERA(IsometricTensorNet):
             iters: number of optimization iterations
             layers: number of mera layers
             opt: qgoptax optimizer
+            use_precond: boolean showing whether to use
+                preconditioner or not
 
         Returns:
             tuple of new parameters, new optimizer state and final value of the loss function."""
@@ -367,8 +370,14 @@ class TernaryMERA(IsometricTensorNet):
         id_indices = map(lambda ind: [ternary_converter(ind, layers)], range(3 ** layers))
         loss_fn = lambda x: reduce(lambda prev, vals: prev + vals[0].loss(x, x, vals[1], vals[2]), [jnp.array(0.)] + list(zip(sub_meras, gates, id_indices)))
         loss_and_grad_fn = value_and_grad(loss_fn)
+        if use_precond:
+            precond_fn = lambda x: sub_mera.precondition(x, id_indices)
         def train_step(params, state, loss):
             loss, grads = loss_and_grad_fn(params)
-            params, state = opt.update(grads, state, params)
+            if use_precond:
+                rho = precond_fn(params_bra)
+                params, state = opt.update(grads, state, params, rho)
+            else:
+                params, state = opt.update(grads, state, params)
             return params, state, loss
         return jax.lax.fori_loop(0, iters, lambda i, vars: train_step(*vars), (params, state, jnp.array(0.)))
