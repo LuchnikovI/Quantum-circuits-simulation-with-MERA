@@ -276,7 +276,7 @@ class TernaryMERA(IsometricTensorNet):
 
         return self.subgraph(self._partial_mera(nodes))
 
-    @partial(jit, static_argnums=(0, 5, 6, 7, 8))
+    @partial(jit, static_argnums=(0, 5, 6, 7, 8, 9))
     def train(self,
               params_bra,
               params_ket,
@@ -285,7 +285,8 @@ class TernaryMERA(IsometricTensorNet):
               indices,
               iters,
               layers,
-              opt):
+              opt,
+              use_precond=True):
         """Apply gate to the MERA tensor network.
 
         Args:
@@ -297,6 +298,8 @@ class TernaryMERA(IsometricTensorNet):
             iters: number of optimization iterations
             layers: number of mera layers
             opt: qgoptax optimizer
+            use_precond: boolean showing whether to use
+                preconditioner or not
 
         Returns:
             tuple of new parameters, new optimizer state and final value of the loss function."""
@@ -305,9 +308,15 @@ class TernaryMERA(IsometricTensorNet):
         sub_mera = self.partial_mera(id_indices)
         loss_fn = lambda x: sub_mera.loss(x, params_ket, gate, id_indices)
         loss_and_grad_fn = value_and_grad(loss_fn)
+        if use_precond:
+            precond_fn = lambda x: sub_mera.precondition(x, id_indices)
         def train_step(params_bra, state, loss):
             loss, grads = loss_and_grad_fn(params_bra)
-            params_bra, state = opt.update(grads, state, params_bra)
+            if use_precond:
+                rho = precond_fn(params_bra)
+                params_bra, state = opt.update(grads, state, params_bra, rho)
+            else:
+                params_bra, state = opt.update(grads, state, params_bra)
             return params_bra, state, loss
         return jax.lax.fori_loop(0, iters, lambda i, vars: train_step(*vars), (params_bra, state, jnp.array(0.)))
 
