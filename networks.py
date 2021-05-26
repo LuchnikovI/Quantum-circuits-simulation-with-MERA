@@ -175,8 +175,8 @@ class IsometricTensorNet(nx.DiGraph):
             for edge_bra, edge_ket in zip(tn.get_all_dangling([node_bra]), tn.get_all_dangling([node_ket])):
                 if edge_bra.name in indices:
                     ind = indices.index(edge_bra.name)
-                    gate_node[ind + len(indices)]^edge_bra
-                    gate_node[ind]^edge_ket
+                    gate_node[ind]^edge_bra
+                    gate_node[ind + len(indices)]^edge_ket
                 else:
                     edge_bra^edge_ket
         total_tn = list(psi_bra.values()) + [gate_node] + list(psi_ket.values())
